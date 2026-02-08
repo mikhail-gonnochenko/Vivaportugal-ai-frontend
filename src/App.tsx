@@ -49,10 +49,13 @@ function App() {
       const formData = new FormData();
       formData.append("image", file);
 
-      const res = await fetch("http://localhost:8787/api/analyze", {
-        method: "POST",
-        body: formData,
-      });
+   const res = await fetch(
+  `${import.meta.env.VITE_API_URL}/api/analyze`,
+  {
+    method: "POST",
+    body: formData,
+  }
+);
 
       if (!res.ok) throw new Error("AI failed");
 
