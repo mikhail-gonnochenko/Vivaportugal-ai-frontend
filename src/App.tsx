@@ -9,14 +9,15 @@ type CropData = {
   height: number;
 };
 
+// 1. Обновили тип AIResult — добавили keywords
 type AIResult = {
   pinterest_title: string;
   pinterest_description: string;
+  keywords: string[]; 
   board: string;
   crop: CropData;
 };
 
-// Тип для ответа от Cloudinary
 type UploadResult = {
   ok: boolean;
   image: {
@@ -32,7 +33,6 @@ function App() {
   const [file, setFile] = useState<File | null>(null);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [aiResult, setAiResult] = useState<AIResult | null>(null);
-  // Состояние для хранения результата загрузки в облако
   const [cloudinaryResult, setCloudinaryResult] = useState<UploadResult | null>(null);
 
   const [status, setStatus] = useState<
@@ -48,7 +48,7 @@ function App() {
     setFile(selected);
     setImageUrl(URL.createObjectURL(selected));
     setAiResult(null);
-    setCloudinaryResult(null); // Сбрасываем при выборе нового фото
+    setCloudinaryResult(null);
     setStatus("idle");
   };
 
@@ -69,7 +69,6 @@ function App() {
       const data: AIResult = await res.json();
       setAiResult(data);
 
-      // Устанавливаем кроп из AI (переводим из 0-1 в проценты для Cropper)
       setCrop({
         x: data.crop.x * 100,
         y: data.crop.y * 100,
@@ -82,16 +81,13 @@ function App() {
     }
   };
 
-  // ===== НОВАЯ ФУНКЦИЯ: UPLOAD TO CLOUDINARY =====
   const uploadToCloudinary = async () => {
     if (!file || !aiResult) return;
-
     setStatus("uploading");
 
     try {
       const formData = new FormData();
       formData.append("image", file);
-      // Отправляем те самые координаты, которые дал AI
       formData.append("crop", JSON.stringify(aiResult.crop));
 
       const res = await fetch(`${API_URL}/api/upload`, {
@@ -104,7 +100,6 @@ function App() {
       const data: UploadResult = await res.json();
       setCloudinaryResult(data);
       setStatus("success");
-      console.log("Cloudinary Image URL:", data.image.pinterest_url);
     } catch (err) {
       console.error("Upload error:", err);
       setStatus("error");
@@ -113,28 +108,35 @@ function App() {
 
   return (
     <div className="app">
-      <h1>VivaPortugal AI</h1>
+      <h1>VivaPortugal AI 🇵🇹</h1>
 
       <p className={`status ${status}`}>Status: {status}</p>
 
-      <input type="file" accept="image/*" onChange={onFileChange} />
+      <div className="upload-section">
+        <input type="file" accept="image/*" onChange={onFileChange} id="file-input" />
+      </div>
 
       {imageUrl && (
-        <div className="crop-wrapper">
-          <Cropper
-            image={imageUrl}
-            crop={crop}
-            zoom={zoom}
-            aspect={2 / 3}
-            onCropChange={setCrop}
-            onZoomChange={setZoom}
-          />
+        <div className="crop-container">
+          <div className="crop-wrapper">
+            <Cropper
+              image={imageUrl}
+              crop={crop}
+              zoom={zoom}
+              aspect={2 / 3}
+              onCropChange={setCrop}
+              onZoomChange={setZoom}
+            />
+          </div>
         </div>
       )}
 
       <div className="buttons">
-        <button onClick={analyzeImage} disabled={!file || status === "loading" || status === "uploading"}>
-          1. Analyze image
+        <button 
+          onClick={analyzeImage} 
+          disabled={!file || status === "loading" || status === "uploading"}
+        >
+          {status === "loading" ? "Analyzing..." : "1. Analyze SEO"}
         </button>
 
         <button 
@@ -142,28 +144,48 @@ function App() {
           disabled={!aiResult || status === "uploading"}
           className="btn-upload"
         >
-          2. Upload to Cloudinary
+          {status === "uploading" ? "Uploading..." : "2. Generate Pinterest Link"}
         </button>
       </div>
 
-      {/* Показываем результат от Cloudinary, если он есть */}
+      {/* Красивый вывод SEO данных */}
+      {aiResult && (
+        <div className="seo-result">
+          <h2>Pinterest Preview</h2>
+          <div className="seo-field">
+            <strong>Title:</strong>
+            <p>{aiResult.pinterest_title}</p>
+          </div>
+          <div className="seo-field">
+            <strong>Description:</strong>
+            <p>{aiResult.pinterest_description}</p>
+          </div>
+          <div className="seo-field">
+            <strong>Board:</strong>
+            <span className="badge">{aiResult.board}</span>
+          </div>
+          <div className="seo-field">
+            <strong>Keywords:</strong>
+            <div className="tags">
+              {aiResult.keywords?.map((kw, i) => (
+                <span key={i} className="tag">{kw}</span>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       {cloudinaryResult && (
         <div className="cloudinary-success">
-          <p>✅ Image ready for Pinterest!</p>
-          <a href={cloudinaryResult.image.pinterest_url} target="_blank" rel="noreferrer">
-            View Cropped Image
+          <p>✅ Image cropped & uploaded!</p>
+          <a href={cloudinaryResult.image.pinterest_url} target="_blank" rel="noreferrer" className="view-link">
+            Open Final Pinterest Image
           </a>
         </div>
       )}
 
-      {aiResult && (
-        <pre className="result">
-          {JSON.stringify(aiResult, null, 2)}
-        </pre>
-      )}
-
       {status === "error" && (
-        <p className="error">Something went wrong. Check logs.</p>
+        <p className="error">Error occurred. Check console for details.</p>
       )}
     </div>
   );
