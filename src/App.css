@@ -1,56 +1,187 @@
+/* ================= ОСНОВНОЙ КОНТЕЙНЕР ================= */
 .app {
-  max-width: 420px;
+  max-width: 450px; /* Немного расширил для удобства */
   margin: 0 auto;
-  padding: 16px;
-  font-family: system-ui, sans-serif;
+  padding: 20px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background-color: #ffffff;
+  color: #333;
 }
 
 h1 {
   margin-bottom: 8px;
+  font-size: 1.8rem;
+  letter-spacing: -0.5px;
 }
 
+/* ================= СТАТУСЫ ================= */
 .status {
   font-size: 14px;
-  margin-bottom: 8px;
+  margin-bottom: 12px;
+  font-weight: 500;
+  padding: 6px 10px;
+  border-radius: 6px;
+  display: inline-block;
 }
 
-.status.loading {
-  color: orange;
-}
-.status.success {
-  color: lightgreen;
-}
-.status.error {
-  color: red;
+.status.idle { background: #f0f0f0; color: #666; }
+.status.loading, .status.uploading { background: #fff4e6; color: #d9480f; }
+.status.success { background: #ebfbee; color: #2b8a3e; }
+.status.error { background: #fff5f5; color: #c92a2a; }
+
+/* ================= КРОППЕР ================= */
+.crop-container {
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  margin-bottom: 20px;
 }
 
 .crop-wrapper {
   position: relative;
   width: 100%;
-  height: 400px;
-  background: #111;
-  margin: 12px 0;
+  height: 450px;
+  background: #222;
 }
 
+/* ================= КНОПКИ ================= */
 .buttons {
   display: flex;
-  gap: 8px;
-  margin-bottom: 12px;
+  gap: 10px;
+  margin-bottom: 20px;
 }
 
 button {
   flex: 1;
-  padding: 10px;
+  padding: 12px;
   cursor: pointer;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  transition: transform 0.1s, opacity 0.2s;
+  background: #efefef;
+  color: #111;
 }
 
+button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  background: #e2e2e2;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Основная кнопка действия (Pinterest Red) */
+.btn-upload {
+  background: #e60023;
+  color: white;
+}
+
+.btn-upload:hover:not(:disabled) {
+  background: #ad001b;
+}
+
+/* ================= SEO РЕЗУЛЬТАТЫ ================= */
+.seo-result {
+  background: #f9f9f9;
+  padding: 20px;
+  border-radius: 12px;
+  border: 1px solid #eee;
+  margin-top: 20px;
+  text-align: left;
+}
+
+.seo-result h2 {
+  font-size: 1.2rem;
+  margin-top: 0;
+  margin-bottom: 15px;
+}
+
+.seo-field {
+  margin-bottom: 15px;
+}
+
+.seo-field strong {
+  display: block;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  color: #888;
+  margin-bottom: 4px;
+}
+
+.seo-field p {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.4;
+}
+
+/* ================= ТЕГИ И БЕЙДЖИ ================= */
+.badge {
+  display: inline-block;
+  background: #e60023;
+  color: white;
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 0.8rem;
+  margin-bottom: 10px;
+}
+
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.tag {
+  display: inline-block;
+  background: #f2f2f2;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  color: #444;
+  border: 1px solid #e0e0e0;
+  transition: all 0.2s ease;
+}
+
+.tag:hover {
+  background: #e60023;
+  color: white;
+  border-color: #e60023;
+}
+
+/* ================= УСПЕХ И ССЫЛКИ ================= */
+.cloudinary-success {
+  background: #e3faf3;
+  padding: 15px;
+  border-radius: 10px;
+  margin-top: 15px;
+  text-align: center;
+}
+
+.view-link {
+  display: inline-block;
+  margin-top: 10px;
+  color: #e60023;
+  font-weight: 700;
+  text-decoration: none;
+  border-bottom: 2px solid transparent;
+}
+
+.view-link:hover {
+  border-bottom-color: #e60023;
+}
+
+/* Старый блок JSON (для отладки) */
 .result {
-  background: #0b0b0b;
+  background: #1a1a1a;
+  color: #00ff00;
   padding: 10px;
-  font-size: 12px;
+  font-size: 10px;
+  border-radius: 6px;
+  margin-top: 20px;
   overflow-x: auto;
-}
-
-.error {
-  color: red;
 }
