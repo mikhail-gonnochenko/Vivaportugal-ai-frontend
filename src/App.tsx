@@ -75,6 +75,7 @@ function App() {
         headers: { Authorization: `Bearer ${pinterestToken}` },
       });
 
+      if (!res.ok) throw new Error("Server error"); // Исправление №3
       const data = await res.json();
 
       if (data.ok) {
@@ -87,12 +88,16 @@ function App() {
     }
   };
 
-  const matchBoard = (aiBoard: string) => {
-    const found = boards.find((b) =>
-      b.name.toLowerCase().includes(aiBoard.toLowerCase())
-    );
-    if (found) setSelectedBoardId(found.id);
-  };
+  // ---------------- SMART BOARD MATCHING ----------------
+  // Исправление №2: Вызываем сопоставление, когда загружены и результат AI, и список досок
+  useEffect(() => {
+    if (aiResult && boards.length > 0) {
+      const found = boards.find((b) =>
+        b.name.toLowerCase().includes(aiResult.board.toLowerCase())
+      );
+      if (found) setSelectedBoardId(found.id);
+    }
+  }, [aiResult, boards]);
 
   // ---------------- REFRESH TOKEN ----------------
   const refreshAccessToken = async () => {
@@ -106,6 +111,7 @@ function App() {
         body: JSON.stringify({ refresh_token: refresh }),
       });
 
+      if (!res.ok) throw new Error("Server error"); // Исправление №3
       const data = await res.json();
 
       if (data.ok) {
@@ -118,15 +124,9 @@ function App() {
   };
 
   // ---------------- AUTH BUTTON ----------------
+  // Исправление №1: Чистый и безопасный вызов OAuth через Backend
   const connectPinterest = () => {
-    const CLIENT_ID = "1544956";
-    const REDIRECT_URI = encodeURIComponent(
-      `${API_URL}/api/pinterest/callback`
-    );
-    const scope =
-      "pins:read,pins:write,boards:read,boards:write";
-
-    window.location.href = `https://www.pinterest.com/oauth/?response_type=code&client_id=${CLIENT_ID}&redirect_uri=${REDIRECT_URI}&scope=${scope}`;
+    window.location.href = `${API_URL}/api/pinterest/auth`;
   };
 
   // ---------------- IMAGE HANDLING ----------------
@@ -141,9 +141,7 @@ function App() {
 
   const analyzeImage = async () => {
     if (!file) return;
-
     setStatus("loading");
-
     try {
       const formData = new FormData();
       formData.append("image", file);
@@ -153,9 +151,9 @@ function App() {
         body: formData,
       });
 
+      if (!res.ok) throw new Error("Server error"); // Исправление №3
       const data: AIResult = await res.json();
       setAiResult(data);
-      matchBoard(data.board);
       setStatus("idle");
     } catch {
       setStatus("error");
@@ -164,9 +162,7 @@ function App() {
 
   const uploadImage = async () => {
     if (!file || !aiResult) return;
-
     setStatus("uploading");
-
     try {
       const formData = new FormData();
       formData.append("image", file);
@@ -177,6 +173,7 @@ function App() {
         body: formData,
       });
 
+      if (!res.ok) throw new Error("Server error"); // Исправление №3
       const data: UploadResult = await res.json();
       setCloudinaryResult(data);
       setStatus("idle");
@@ -208,12 +205,17 @@ function App() {
         }),
       });
 
+      if (res.status === 401) {
+        await refreshAccessToken();
+        setStatus("idle");
+        return;
+      }
+
+      if (!res.ok) throw new Error("Server error"); // Исправление №3
       const data = await res.json();
 
       if (data.ok) {
         alert("✅ Pin Published!");
-      } else if (res.status === 401) {
-        await refreshAccessToken();
       } else {
         throw new Error();
       }
