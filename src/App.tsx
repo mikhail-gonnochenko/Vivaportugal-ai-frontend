@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import Cropper from "react-easy-crop";
 import "./App.css";
 
 type CropData = { x: number; y: number; width: number; height: number };
@@ -29,7 +28,6 @@ function App() {
 
   // ---------------- STATE ----------------
   const [file, setFile] = useState<File | null>(null);
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [aiResult, setAiResult] = useState<AIResult | null>(null);
   const [cloudinaryResult, setCloudinaryResult] =
     useState<UploadResult | null>(null);
@@ -42,9 +40,6 @@ function App() {
     useState<"idle" | "loading" | "uploading" | "publishing" | "error">(
       "idle"
     );
-
-  const [crop, setCrop] = useState({ x: 0, y: 0 });
-  const [zoom, setZoom] = useState(1);
 
   // ---------------- OAUTH HANDLER ----------------
   useEffect(() => {
@@ -75,7 +70,7 @@ function App() {
         headers: { Authorization: `Bearer ${pinterestToken}` },
       });
 
-      if (!res.ok) throw new Error("Server error"); // Исправление №3
+      if (!res.ok) throw new Error("Server error");
       const data = await res.json();
 
       if (data.ok) {
@@ -89,7 +84,6 @@ function App() {
   };
 
   // ---------------- SMART BOARD MATCHING ----------------
-  // Исправление №2: Вызываем сопоставление, когда загружены и результат AI, и список досок
   useEffect(() => {
     if (aiResult && boards.length > 0) {
       const found = boards.find((b) =>
@@ -111,7 +105,7 @@ function App() {
         body: JSON.stringify({ refresh_token: refresh }),
       });
 
-      if (!res.ok) throw new Error("Server error"); // Исправление №3
+      if (!res.ok) throw new Error("Server error");
       const data = await res.json();
 
       if (data.ok) {
@@ -124,7 +118,6 @@ function App() {
   };
 
   // ---------------- AUTH BUTTON ----------------
-  // Исправление №1: Чистый и безопасный вызов OAuth через Backend
   const connectPinterest = () => {
     window.location.href = `${API_URL}/api/pinterest/auth`;
   };
@@ -134,7 +127,7 @@ function App() {
     if (!e.target.files?.[0]) return;
     const selected = e.target.files[0];
     setFile(selected);
-    setImageUrl(URL.createObjectURL(selected));
+    // ✅ Лишнее удалено (setImageUrl)
     setAiResult(null);
     setCloudinaryResult(null);
   };
@@ -151,7 +144,7 @@ function App() {
         body: formData,
       });
 
-      if (!res.ok) throw new Error("Server error"); // Исправление №3
+      if (!res.ok) throw new Error("Server error");
       const data: AIResult = await res.json();
       setAiResult(data);
       setStatus("idle");
@@ -173,7 +166,7 @@ function App() {
         body: formData,
       });
 
-      if (!res.ok) throw new Error("Server error"); // Исправление №3
+      if (!res.ok) throw new Error("Server error");
       const data: UploadResult = await res.json();
       setCloudinaryResult(data);
       setStatus("idle");
@@ -211,7 +204,7 @@ function App() {
         return;
       }
 
-      if (!res.ok) throw new Error("Server error"); // Исправление №3
+      if (!res.ok) throw new Error("Server error");
       const data = await res.json();
 
       if (data.ok) {
