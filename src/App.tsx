@@ -1,19 +1,13 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Cropper from "react-easy-crop";
 import "./App.css";
 
-type CropData = {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-};
+type CropData = { x: number; y: number; width: number; height: number };
 
-// 1. Обновили тип AIResult — добавили keywords
 type AIResult = {
   pinterest_title: string;
   pinterest_description: string;
-  keywords: string[]; 
+  keywords: string[];
   board: string;
   crop: CropData;
 };
@@ -22,26 +16,120 @@ type UploadResult = {
   ok: boolean;
   image: {
     pinterest_url: string;
-    original_url: string;
     public_id: string;
   };
 };
 
-function App() {
-  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8787";
+type PinterestBoard = { id: string; name: string };
 
+function App() {
+  const API_URL =
+    import.meta.env.VITE_API_URL ||
+    "https://vivaportugal-ai-backend.onrender.com";
+
+  // ---------------- STATE ----------------
   const [file, setFile] = useState<File | null>(null);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [aiResult, setAiResult] = useState<AIResult | null>(null);
-  const [cloudinaryResult, setCloudinaryResult] = useState<UploadResult | null>(null);
+  const [cloudinaryResult, setCloudinaryResult] =
+    useState<UploadResult | null>(null);
 
-  const [status, setStatus] = useState<
-    "idle" | "loading" | "success" | "error" | "uploading"
-  >("idle");
+  const [pinterestToken, setPinterestToken] = useState<string | null>(null);
+  const [boards, setBoards] = useState<PinterestBoard[]>([]);
+  const [selectedBoardId, setSelectedBoardId] = useState<string>("");
+
+  const [status, setStatus] =
+    useState<"idle" | "loading" | "uploading" | "publishing" | "error">(
+      "idle"
+    );
 
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
 
+  // ---------------- OAUTH HANDLER ----------------
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const access = params.get("access");
+    const refresh = params.get("refresh");
+
+    if (access) {
+      localStorage.setItem("pinterest_access_token", access);
+      if (refresh) localStorage.setItem("pinterest_refresh_token", refresh);
+
+      setPinterestToken(access);
+      window.history.replaceState({}, document.title, "/");
+    } else {
+      const saved = localStorage.getItem("pinterest_access_token");
+      if (saved) setPinterestToken(saved);
+    }
+  }, []);
+
+  // ---------------- FETCH BOARDS ----------------
+  useEffect(() => {
+    if (pinterestToken) fetchBoards();
+  }, [pinterestToken]);
+
+  const fetchBoards = async () => {
+    try {
+      const res = await fetch(`${API_URL}/api/pinterest/boards`, {
+        headers: { Authorization: `Bearer ${pinterestToken}` },
+      });
+
+      const data = await res.json();
+
+      if (data.ok) {
+        setBoards(data.boards);
+      } else if (res.status === 401) {
+        await refreshAccessToken();
+      }
+    } catch (err) {
+      console.error("Board fetch error:", err);
+    }
+  };
+
+  const matchBoard = (aiBoard: string) => {
+    const found = boards.find((b) =>
+      b.name.toLowerCase().includes(aiBoard.toLowerCase())
+    );
+    if (found) setSelectedBoardId(found.id);
+  };
+
+  // ---------------- REFRESH TOKEN ----------------
+  const refreshAccessToken = async () => {
+    const refresh = localStorage.getItem("pinterest_refresh_token");
+    if (!refresh) return;
+
+    try {
+      const res = await fetch(`${API_URL}/api/pinterest/refresh`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ refresh_token: refresh }),
+      });
+
+      const data = await res.json();
+
+      if (data.ok) {
+        localStorage.setItem("pinterest_access_token", data.access_token);
+        setPinterestToken(data.access_token);
+      }
+    } catch (err) {
+      console.error("Refresh failed:", err);
+    }
+  };
+
+  // ---------------- AUTH BUTTON ----------------
+  const connectPinterest = () => {
+    const CLIENT_ID = "1544956";
+    const REDIRECT_URI = encodeURIComponent(
+      `${API_URL}/api/pinterest/callback`
+    );
+    const scope =
+      "pins:read,pins:write,boards:read,boards:write";
+
+    window.location.href = `https://www.pinterest.com/oauth/?response_type=code&client_id=${CLIENT_ID}&redirect_uri=${REDIRECT_URI}&scope=${scope}`;
+  };
+
+  // ---------------- IMAGE HANDLING ----------------
   const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files?.[0]) return;
     const selected = e.target.files[0];
@@ -49,12 +137,13 @@ function App() {
     setImageUrl(URL.createObjectURL(selected));
     setAiResult(null);
     setCloudinaryResult(null);
-    setStatus("idle");
   };
 
   const analyzeImage = async () => {
     if (!file) return;
+
     setStatus("loading");
+
     try {
       const formData = new FormData();
       formData.append("image", file);
@@ -64,25 +153,18 @@ function App() {
         body: formData,
       });
 
-      if (!res.ok) throw new Error("AI analysis failed");
-
       const data: AIResult = await res.json();
       setAiResult(data);
-
-      setCrop({
-        x: data.crop.x * 100,
-        y: data.crop.y * 100,
-      });
-
-      setStatus("success");
-    } catch (err) {
-      console.error("Analyze error:", err);
+      matchBoard(data.board);
+      setStatus("idle");
+    } catch {
       setStatus("error");
     }
   };
 
-  const uploadToCloudinary = async () => {
+  const uploadImage = async () => {
     if (!file || !aiResult) return;
+
     setStatus("uploading");
 
     try {
@@ -95,98 +177,99 @@ function App() {
         body: formData,
       });
 
-      if (!res.ok) throw new Error("Upload failed");
-
       const data: UploadResult = await res.json();
       setCloudinaryResult(data);
-      setStatus("success");
-    } catch (err) {
-      console.error("Upload error:", err);
+      setStatus("idle");
+    } catch {
       setStatus("error");
     }
   };
 
+  // ---------------- PUBLISH PIN ----------------
+  const publishPin = async () => {
+    if (!pinterestToken || !selectedBoardId || !aiResult || !cloudinaryResult)
+      return;
+
+    setStatus("publishing");
+
+    try {
+      const res = await fetch(`${API_URL}/api/pinterest/pins`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${pinterestToken}`,
+        },
+        body: JSON.stringify({
+          title: aiResult.pinterest_title,
+          description: aiResult.pinterest_description,
+          image_url: cloudinaryResult.image.pinterest_url,
+          board_id: selectedBoardId,
+          link: "https://viva-portugal.com",
+        }),
+      });
+
+      const data = await res.json();
+
+      if (data.ok) {
+        alert("✅ Pin Published!");
+      } else if (res.status === 401) {
+        await refreshAccessToken();
+      } else {
+        throw new Error();
+      }
+
+      setStatus("idle");
+    } catch {
+      alert("Publishing failed (likely Trial Access restriction)");
+      setStatus("error");
+    }
+  };
+
+  // ---------------- UI ----------------
   return (
     <div className="app">
       <h1>VivaPortugal AI 🇵🇹</h1>
 
-      <p className={`status ${status}`}>Status: {status}</p>
-
-      <div className="upload-section">
-        <input type="file" accept="image/*" onChange={onFileChange} id="file-input" />
-      </div>
-
-      {imageUrl && (
-        <div className="crop-container">
-          <div className="crop-wrapper">
-            <Cropper
-              image={imageUrl}
-              crop={crop}
-              zoom={zoom}
-              aspect={2 / 3}
-              onCropChange={setCrop}
-              onZoomChange={setZoom}
-            />
-          </div>
-        </div>
-      )}
-
-      <div className="buttons">
-        <button 
-          onClick={analyzeImage} 
-          disabled={!file || status === "loading" || status === "uploading"}
-        >
-          {status === "loading" ? "Analyzing..." : "1. Analyze SEO"}
+      {!pinterestToken ? (
+        <button onClick={connectPinterest}>
+          Connect Pinterest
         </button>
+      ) : (
+        <p>✅ Pinterest Connected</p>
+      )}
 
-        <button 
-          onClick={uploadToCloudinary} 
-          disabled={!aiResult || status === "uploading"}
-          className="btn-upload"
+      <input type="file" onChange={onFileChange} />
+
+      <button onClick={analyzeImage} disabled={!file}>
+        1. Analyze
+      </button>
+
+      <button onClick={uploadImage} disabled={!aiResult}>
+        2. Prepare Image
+      </button>
+
+      {boards.length > 0 && (
+        <select
+          value={selectedBoardId}
+          onChange={(e) => setSelectedBoardId(e.target.value)}
         >
-          {status === "uploading" ? "Uploading..." : "2. Generate Pinterest Link"}
-        </button>
-      </div>
-
-      {/* Красивый вывод SEO данных */}
-      {aiResult && (
-        <div className="seo-result">
-          <h2>Pinterest Preview</h2>
-          <div className="seo-field">
-            <strong>Title:</strong>
-            <p>{aiResult.pinterest_title}</p>
-          </div>
-          <div className="seo-field">
-            <strong>Description:</strong>
-            <p>{aiResult.pinterest_description}</p>
-          </div>
-          <div className="seo-field">
-            <strong>Board:</strong>
-            <span className="badge">{aiResult.board}</span>
-          </div>
-          <div className="seo-field">
-            <strong>Keywords:</strong>
-            <div className="tags">
-              {aiResult.keywords?.map((kw, i) => (
-                <span key={i} className="tag">{kw}</span>
-              ))}
-            </div>
-          </div>
-        </div>
+          <option value="">Select Board</option>
+          {boards.map((b) => (
+            <option key={b.id} value={b.id}>
+              {b.name}
+            </option>
+          ))}
+        </select>
       )}
 
-      {cloudinaryResult && (
-        <div className="cloudinary-success">
-          <p>✅ Image cropped & uploaded!</p>
-          <a href={cloudinaryResult.image.pinterest_url} target="_blank" rel="noreferrer" className="view-link">
-            Open Final Pinterest Image
-          </a>
-        </div>
-      )}
+      <button
+        onClick={publishPin}
+        disabled={!cloudinaryResult || !selectedBoardId}
+      >
+        3. Publish
+      </button>
 
-      {status === "error" && (
-        <p className="error">Error occurred. Check console for details.</p>
-      )}
+      <p>Status: {status}</p>
     </div>
   );
 }
